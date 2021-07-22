@@ -1,6 +1,6 @@
 {
   "name": "@flexify/core",
-  "version": "0.0.1",
+  "version": "0.0.4",
   "description": "",
   "types": "dist/index.d.ts",
   "main": "./dist/index.js",

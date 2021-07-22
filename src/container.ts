@@ -1,68 +1,67 @@
-import 'reflect-metadata';
 import { v4 } from 'uuid';
 
-import { ClassType } from './class.type';
-
-type AliasType = (container: Container) => ClassType;
-
-interface IRegister {
-    [key: string]: {
-        Target: ClassType;
-        alias?: AliasType;
-    };
+export type CacheType<T> = {
+    instance: T & { init?: () => void },
 }
 
-interface IInstances {
-    [key: string]: ClassType;
-}
+export type ContainerClassType<T> = { new(): T };
 
-export const CONTAINER_ID = Symbol('CONTAINER_ID');
-export const CONTAINER_CONTEXT = Symbol('CONTAINER_CONTEXT');
+export const CONTEXT = Symbol('CONTEXT');
+
+function isClass(v: any) {
+    return typeof v === 'function' && /^\s*class\s+/.test(v.toString());
+}
 
 export class Container {
-    private static context = new Container();
 
-    public static add(target: ClassType) {
-        if (!target[CONTAINER_ID]) {
-            target[CONTAINER_ID] = v4();
+    private ID = Symbol('ID')
 
-            this.register[target[CONTAINER_ID]] = {
-                Target: target,
-            };
-        }
-    }
+    private cache = new Map<string, CacheType<any>>()
+    private aliases = new Map<string, any>();
 
-    public static getContext() {
-        return this.context;
-    }
-
-    public static set(target: any, alias: any) {
-        this.register[target[CONTAINER_ID]].alias = alias;
-    }
-
-    private static register: IRegister = {};
-
-    private instances: IInstances = {};
-
-    public get<T>(target: any): T {
-        const instanceKey = target[CONTAINER_ID];
-
-        if (!this.instances[instanceKey]) {
-            const { alias, Target } = Container.register[instanceKey];
-            const instance = alias ? alias(this) : new Target();
-
-            this.instances[instanceKey] = instance;
-            instance[CONTAINER_CONTEXT] = this;
-
-            if (instance.init) {
-                instance.init();
-            }
+    getId(Target: any) {
+        if (!Target[this.ID]) {
+            Target[this.ID] = v4();
         }
 
-        return this.instances[instanceKey] as any;
+        return Target[this.ID];
     }
 
-    public destroy() {
-        this.instances = {};
+    set(Target: any, Value: any) {
+        const id = this.getId(Target);
+        this.aliases.set(id, Value);
+    }
+
+    get<T>(Target: ContainerClassType<T>): T {
+        const id = this.getId(Target);
+
+        if (!this.cache.has(id)) {
+            this.createInstance(Target);
+        }
+
+        return this.cache.get(id).instance;
+    }
+
+    createInstance<T>(Target: ContainerClassType<T>) {
+        const id = this.getId(Target);
+        const alias = this.aliases.get(id);
+        const options: CacheType<T> = {
+            instance: alias ?
+                isClass(alias) ? new alias() : alias(this)
+                : new Target()
+        }
+        options.instance[CONTEXT] = this;
+
+        if (typeof options.instance.init === 'function') {
+            options.instance.init();
+        }
+
+        this.cache.set(id, options);
+    }
+
+    reCreateInstance<T>(Target: ContainerClassType<T>) {
+        const id = this.getId(Target);
+        this.cache.get(id).instance = null;
+        this.cache.delete(id);
     }
 }
