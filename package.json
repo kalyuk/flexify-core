@@ -6,7 +6,8 @@
   "main": "./dist/index.js",
   "scripts": {
     "prepublish": "npm run build",
-    "build": "tsc"
+    "build": "tsc",
+    "pub": "npm publish --access public"
   },
   "repository": {
     "type": "git",
